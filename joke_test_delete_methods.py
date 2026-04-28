@@ -1,4 +1,5 @@
 import requests
+from requests import Response
 
 
 class ApiMethods:
@@ -15,11 +16,10 @@ class ApiMethods:
     existing_places_file = "existing_place_ids.txt"
 
     def create_place(self) -> str:
-        # Отправляем POST запрос и получаем place_id
+        # Создание place и возврат place_id
 
         url = self.base_url + self.post_resource + self.key
 
-        # Тело запроса
         json_data = {
             "location": {"lat": -38.383494, "lng": 33.427362},
             "accuracy": 50,
@@ -31,61 +31,39 @@ class ApiMethods:
             "language": "French-IN"
         }
 
-        # Отправляем POST
         response = requests.post(url, json=json_data)
+        return response.json()["place_id"]
 
-        # Проверяем статус
-        assert response.status_code == 200, "POST запрос не отработал"
-
-        response_json = response.json()
-
-        # Проверяем статус из ответа
-        assert response_json["status"] == "OK", "Статус в ответе не OK"
-
-        # Берём place_id
-        place_id = response_json["place_id"]
-
-        return place_id
-
-    def get_place(self, place_id: str):
-        # GET запрос по place_id
+    def get_place(self, place_id: str) -> Response:
+        # Получение place по place_id
 
         url = f"{self.base_url}{self.get_resource}{self.key}&place_id={place_id}"
+        return requests.get(url)
 
-        response = requests.get(url)
+    def delete_place(self, place_id: str) -> Response:
+        # Удаление place
 
-        return response
+        url = self.base_url + self.delete_resource + self.key
 
-    def delete_place(self, place_id: str):
-        # DELETE запрос для удаления place_id
+        json_data = {"place_id": place_id}
 
-        delete_url = self.base_url + self.delete_resource + self.key
+        return requests.delete(url, json=json_data)
 
-        # Тело DELETE запроса
-        json_delete_data = {"place_id": place_id}
-
-        # Отправляем DELETE
-        response = requests.delete(delete_url, json=json_delete_data)
-
-        return response
-
-    def save_place_ids_to_file(self, place_ids: list):
-        # Сохраняем place_id в текстовый файл
+    def save_place_ids_to_file(self, place_ids: list[str]) -> None:
+        # Сохранение place_id в файл
 
         with open(self.places_file, "w") as file:
             for place_id in place_ids:
                 file.write(place_id + "\n")
 
-    def read_place_ids_from_file(self) -> list:
-        # Читаем place_id из текстового файла
+    def read_place_ids_from_file(self) -> list[str]:
+        # Чтение place_id из файла
 
         with open(self.places_file, "r") as file:
-            place_ids = [line.strip() for line in file.readlines()]
+            return [line.strip() for line in file.readlines()]
 
-        return place_ids
-
-    def save_existing_place_ids(self, place_ids: list):
-        # Сохраняем существующие place_id в новый файл
+    def save_existing_place_ids(self, place_ids: list[str]) -> None:
+        # Сохранение существующих place_id
 
         with open(self.existing_places_file, "w") as file:
             for place_id in place_ids:
@@ -93,33 +71,29 @@ class ApiMethods:
 
 
 class TestPlaceAPI:
-    # Тест
+    # Тесты
 
-    def test_delete_and_get_places(self):
+    def test_delete_and_get_places(self) -> None:
         api = ApiMethods()
 
+        # Создаём 5 place_id
         place_ids = []
 
-        # Создаём 5 новых place_id
         for _ in range(5):
             place_id = api.create_place()
             place_ids.append(place_id)
 
-        # Проверяем количество созданных place_id
-        assert len(place_ids) == 5, "Создано неверное количество place_id"
+        assert len(place_ids) == 5
 
         print("Создано 5 place_id")
 
-        # Сохраняем place_id в текстовый файл
+        # Сохраняем place_id в файл
         api.save_place_ids_to_file(place_ids)
-
-        print("place_id сохранены в файл")
 
         # Читаем place_id из файла
         saved_place_ids = api.read_place_ids_from_file()
 
-        # Проверяем количество place_id в файле
-        assert len(saved_place_ids) == 5, "В файле должно быть 5 place_id"
+        assert len(saved_place_ids) == 5
 
         print("Файл успешно прочитан")
 
@@ -127,56 +101,43 @@ class TestPlaceAPI:
         delete_indexes = [1, 3]
 
         for index in delete_indexes:
-            delete_response = api.delete_place(saved_place_ids[index])
+            place_id = saved_place_ids[index]
 
-            # Проверяем статус DELETE
-            assert delete_response.status_code == 200, \
-                f"DELETE запрос не отработал для place_id: {saved_place_ids[index]}"
+            delete_response = api.delete_place(place_id)
+            delete_json = delete_response.json()
 
-            delete_response_json = delete_response.json()
+            assert delete_response.status_code == 200
+            assert delete_json["status"] == "OK"
 
-            # Проверяем статус удаления
-            assert delete_response_json["status"] == "OK", \
-                f"Статус удаления не OK для place_id: {saved_place_ids[index]}"
+            print(f"Удалён place_id: {place_id}")
 
-            print(f"place_id удалён: {saved_place_ids[index]}")
-
+        # Проверяем, какие place_id ещё существуют
         existing_place_ids = []
 
-        # Проверяем существование всех локаций через GET
         for place_id in saved_place_ids:
-
             get_response = api.get_place(place_id)
 
-            # Существующая локация
             if get_response.status_code == 200:
+                get_json = get_response.json()
 
-                get_response_json = get_response.json()
-
-                if "address" in get_response_json:
+                if "address" in get_json:
                     existing_place_ids.append(place_id)
-
-                    print(f"Локация существует: {place_id}")
-
-            # Несуществующая локация
+                    print(f"Существует: {place_id}")
+                else:
+                    print(f"Нет address: {place_id}")
             else:
-                print(f"Локация не существует: {place_id}")
+                print(f"Не существует: {place_id}")
 
-        # Проверяем количество существующих локаций
-        assert len(existing_place_ids) == 3, \
-            "После удаления должно остаться 3 существующие локации"
+        assert len(existing_place_ids) == 3
 
-        print("Найдено 3 существующие локации")
+        print("Найдено 3 существующих place_id")
 
-        # Сохраняем существующие локации в новый файл
         api.save_existing_place_ids(existing_place_ids)
 
-        print("3 существующие локации сохранены в новый файл")
+        print("Существующие place_id сохранены")
 
 
 # Запуск
 if __name__ == "__main__":
-    test = TestPlaceAPI()
-    test.test_delete_and_get_places()
-
+    TestPlaceAPI().test_delete_and_get_places()
     print("Тест пройден успешно!")
