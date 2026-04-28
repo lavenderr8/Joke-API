@@ -1,4 +1,5 @@
 import requests
+from requests import Response
 
 
 class ApiMethods:
@@ -10,12 +11,9 @@ class ApiMethods:
     post_resource = "/maps/api/place/add/json"
     get_resource = "/maps/api/place/get/json"
 
-    def create_place(self) -> str:
-        # Отправляем POST запрос и получаем place_id
-
+    def create_place(self) -> Response:
         url = self.base_url + self.post_resource + self.key
 
-        # Тело запроса
         json_data = {
             "location": {"lat": -38.383494, "lng": 33.427362},
             "accuracy": 50,
@@ -27,57 +25,53 @@ class ApiMethods:
             "language": "French-IN"
         }
 
-        # Отправляем POST
-        response = requests.post(url, json=json_data)
+        response = requests.post(url, json=json_data, timeout=10)
+        return response
 
-        # Проверяем статус
-        assert response.status_code == 200, "POST запрос не отработал"
-
-        response_json = response.json()
-
-        # Проверяем статус из ответа
-        assert response_json["status"] == "OK", "Статус в ответе не OK"
-
-        # Берём place_id
-        place_id = response_json["place_id"]
-
-        print(f"Создан place_id: {place_id}")
-
-        return place_id
-
-    def get_place(self, place_id: str):
-        # GET запрос по place_id
-
+    def get_place(self, place_id: str) -> Response:
         url = f"{self.base_url}{self.get_resource}{self.key}&place_id={place_id}"
 
-        response = requests.get(url)
-
+        response = requests.get(url, timeout=10)
         return response
 
 
 class TestPlaceAPI:
-    # Тест
+    # Тесты
 
     file_name = "place_ids.txt"
 
-    def test_place_flow(self):
+    def test_create_place(self) -> None:
         api = ApiMethods()
 
-        # Создаём 5 place_id
+        response = api.create_place()
+        response_json = response.json()
+
+        assert response.status_code == 200
+        assert response_json["status"] == "OK"
+
+        print("POST запрос успешно выполнен")
+
+    def test_place_flow(self) -> None:
+        api = ApiMethods()
+
         place_ids = []
 
+        # Создаём 5 place_id
         for _ in range(5):
-            place_id = api.create_place()
+            response = api.create_place()
+            place_id = response.json()["place_id"]
             place_ids.append(place_id)
 
-        # Сохраняем их в файл
+            print(f"Создан place_id: {place_id}")
+
+        # Записываем в файл
         with open(self.file_name, "w") as file:
             for pid in place_ids:
                 file.write(pid + "\n")
 
         print("\nplace_id записаны в файл.\n")
 
-        # Читаем из файла и проверяем GET
+        # Читаем и проверяем GET
         with open(self.file_name, "r") as file:
             file_place_ids = file.readlines()
 
@@ -85,25 +79,21 @@ class TestPlaceAPI:
             pid = pid.strip()
 
             response = api.get_place(pid)
-
-            # Проверяем статус
-            assert response.status_code == 200, f"GET запрос упал для {pid}"
-
             response_json = response.json()
-            print(f"Ответ GET для {pid}: {response_json}")
 
-            # Проверяем, что ответ не пустой
-            assert response_json != {}, f"Пустой ответ для {pid}"
+            assert response.status_code == 200
+            assert response_json != {}
 
-            # Проверяем основные данные
-            assert response_json["name"] == "Frontline house", "Имя не совпадает"
-            assert response_json["address"] == "29, side layout, cohen 09", "Адрес не совпадает"
+            assert response_json["name"] == "Frontline house"
+            assert response_json["address"] == "29, side layout, cohen 09"
 
-            print(f"place_id: {pid} - существует и данные корректны\n")
+            print(f"Place_id: {pid} — проверка пройдена")
 
 
-# Запуск
 if __name__ == "__main__":
     test = TestPlaceAPI()
+
+    test.test_create_place()
     test.test_place_flow()
-    print("Тест пройден успешно!")
+
+    print("Все тесты пройдены успешно!")
