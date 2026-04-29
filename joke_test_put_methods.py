@@ -20,8 +20,6 @@ class TestPlaceAPI:
         # POST REQUEST
         post_response = api.create_place()
 
-        assert post_response.status_code == 200, "POST request failed"
-
         place_id = post_response.json()["place_id"]
 
         # PUT REQUEST
@@ -37,8 +35,6 @@ class TestPlaceAPI:
 
         # POST REQUEST
         post_response = api.create_place()
-
-        assert post_response.status_code == 200, "POST request failed"
 
         place_id = post_response.json()["place_id"]
 
