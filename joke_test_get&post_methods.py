@@ -46,8 +46,8 @@ class TestPlaceAPI:
         response = api.create_place()
         response_json = response.json()
 
-        assert response.status_code == 200
-        assert response_json["status"] == "OK"
+        assert response.status_code == 200, "POST запрос не выполнен"
+        assert response_json["status"] == "OK", "Статус ответа не OK"
 
         print("POST запрос успешно выполнен")
 
@@ -66,30 +66,32 @@ class TestPlaceAPI:
 
         # Записываем в файл
         with open(self.file_name, "w") as file:
-            for pid in place_ids:
-                file.write(pid + "\n")
+            for place_id in place_ids:
+                file.write(place_id + "\n")
 
         print("\nplace_id записаны в файл.\n")
 
-        # Читаем и проверяем GET
+        # Читаем place_id из файла
         with open(self.file_name, "r") as file:
-            file_place_ids = file.readlines()
+            file_place_ids = file.read().splitlines()
 
-        for pid in file_place_ids:
-            pid = pid.strip()
+        # Проверяем корректность записи и чтения файла
+        assert place_ids == file_place_ids, "Списки place_id до и после записи в файл не совпадают"
 
-            response = api.get_place(pid)
+        # Проверяем GET запросы
+        for place_id in file_place_ids:
+            response = api.get_place(place_id)
             response_json = response.json()
 
-            assert response.status_code == 200
-            assert response_json != {}
+            assert response.status_code == 200, f"GET запрос не выполнен для {place_id}"
+            assert response_json != {}, f"Пустой ответ для {place_id}"
+            assert response_json["name"] == "Frontline house", f"Имя не совпадает для {place_id}"
+            assert response_json["address"] == "29, side layout, cohen 09", f"Адрес не совпадает для {place_id}"
 
-            assert response_json["name"] == "Frontline house"
-            assert response_json["address"] == "29, side layout, cohen 09"
-
-            print(f"Place_id: {pid} — проверка пройдена")
+            print(f"Place_id: {place_id} — проверка пройдена")
 
 
+# Запуск
 if __name__ == "__main__":
     test = TestPlaceAPI()
 
